@@ -60,13 +60,17 @@ function calculateHistoryHash(
 	return crypto.createHash("sha256").update(combined).digest("hex");
 }
 
-function getOrCreateSession(contents: any[], token: string | null) {
+function getOrCreateSession(
+	contents: any[],
+	token: string | null,
+	providedSessionId?: string,
+) {
 	const identity = token || "default";
 	const historyHash = calculateHistoryHash(contents, true, identity);
 	const newHistoryHash = calculateHistoryHash(contents, false, identity);
 
-	let sessionKey: string | null = null;
-	if (historyHash && historyHashToSessionId.has(historyHash)) {
+	let sessionKey: string | null = providedSessionId || null;
+	if (!sessionKey && historyHash && historyHashToSessionId.has(historyHash)) {
 		sessionKey = historyHashToSessionId.get(historyHash)!;
 	}
 
@@ -86,7 +90,7 @@ function getOrCreateSession(contents: any[], token: string | null) {
 		}
 		session.lastActive = Date.now();
 	} else {
-		sessionKey = crypto.randomUUID();
+		sessionKey = sessionKey || crypto.randomUUID();
 		session = {
 			conversationId: crypto.randomUUID(),
 			trajectoryId: crypto.randomUUID(),
@@ -227,7 +231,8 @@ export async function handleGenerateContent(
 
 		// 2. Wrap/Simulate realistic metadata
 		const contents = originalBody.contents || [];
-		const session = getOrCreateSession(contents, token);
+		const providedSessionId = req.headers["x-session-id"] as string | undefined;
+		const session = getOrCreateSession(contents, token, providedSessionId);
 
 		const userMsgCnt = contents.filter(
 			(m: any) => m.role === "user" && m.parts?.some((p: any) => "text" in p),
@@ -242,10 +247,8 @@ export async function handleGenerateContent(
 
 		const conversationId =
 			req.headers["x-conversation-id"] || session.conversationId;
-		const trajectoryId = req.headers["x-trajectory-id"] || session.trajectoryId;
-		const stepIndex = req.headers["x-step-index"]
-			? parseInt(req.headers["x-step-index"] as string, 10)
-			: session.stepIndex;
+		const trajectoryId = session.trajectoryId;
+		const stepIndex = session.stepIndex;
 		const sessionId = session.sessionId;
 		const timestamp = Date.now();
 		const requestId = `agent/${conversationId}/${timestamp}/${trajectoryId}/${stepIndex}`;
