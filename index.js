@@ -7,8 +7,12 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 
 // Standard Gemini endpoints proxy mapped to Cloud Code
-app.post('/v1beta/models/:model:generateContent', (req, res) => handleGenerateContent(req, res, false));
-app.post('/v1beta/models/:model:streamGenerateContent', (req, res) => handleGenerateContent(req, res, true));
+app.post('/v1beta/models/:modelAndAction', (req, res) => {
+    const [model, action] = req.params.modelAndAction.split(':');
+    req.params.model = model;
+    const isStreaming = action === 'streamGenerateContent';
+    return handleGenerateContent(req, res, isStreaming);
+});
 
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
