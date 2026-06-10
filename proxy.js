@@ -38,9 +38,37 @@ function getOrCreateSession(token) {
     return sessions.get(key);
 }
 
+let cachedProject = null;
+
+async function fetchProject(token) {
+    if (cachedProject) return cachedProject;
+    try {
+        const response = await fetch(`${ANTIGRAVITY_ENDPOINT_DAILY}/v1internal:fetchUserInfo`, {
+            method: 'POST',
+            headers: {
+                ...ANTIGRAVITY_HEADERS,
+                'Authorization': `Bearer ${token}`
+            },
+            body: '{}'
+        });
+        if (response.ok) {
+            const data = await response.json();
+            if (data && data.project) {
+                cachedProject = data.project;
+            }
+        } else {
+            console.warn(`Failed to fetch project info: ${response.status}`);
+        }
+    } catch (err) {
+        console.warn('Error fetching project info:', err.message);
+    }
+    return cachedProject || 'kinetic-text-bkvbm';
+}
+
 export async function handleGenerateContent(req, res, isStreaming) {
     try {
         const token = await getToken();
+        const projectName = await fetchProject(token);
         const model = req.params.model;
         const originalBody = req.body;
 
@@ -88,7 +116,7 @@ export async function handleGenerateContent(req, res, isStreaming) {
         };
 
         const payload = {
-            project: 'kinetic-text-bkvbm',
+            project: projectName,
             requestId: requestId,
             request: {
                 contents: originalBody.contents || [],
