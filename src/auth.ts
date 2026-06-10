@@ -64,9 +64,11 @@ export async function saveToken(tokenData: TokenData) {
 		}
 		fileContent.token = tokenData;
 
-		await fs.writeFile(TOKEN_PATH, JSON.stringify(fileContent, null, 2), {
+		const tmpPath = `${TOKEN_PATH}.tmp`;
+		await fs.writeFile(tmpPath, JSON.stringify(fileContent, null, 2), {
 			mode: 0o600,
 		});
+		await fs.rename(tmpPath, TOKEN_PATH);
 	} catch (err) {
 		console.warn(
 			"Failed to save refreshed token to cache:",
