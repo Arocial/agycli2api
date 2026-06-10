@@ -32,13 +32,24 @@ export async function saveToken(tokenData: any) {
 		if (
 			tokenData.expires_in &&
 			!tokenData.expiry_date &&
-			!tokenData.expires_at
+			!tokenData.expires_at &&
+			!tokenData.expiry
 		) {
 			tokenData.expiry_date =
 				Date.now() + tokenData.expires_in * 1000 - TOKEN_EXPIRY_BUFFER_MS;
+			tokenData.expiry = new Date(tokenData.expiry_date).toISOString();
 		}
 
-		await fs.writeFile(TOKEN_PATH, JSON.stringify(tokenData, null, 2), {
+		let fileContent: any = { auth_method: "consumer" };
+		try {
+			const existingData = await fs.readFile(TOKEN_PATH, "utf8");
+			fileContent = JSON.parse(existingData);
+		} catch (e) {
+			// Ignore read error
+		}
+		fileContent.token = tokenData;
+
+		await fs.writeFile(TOKEN_PATH, JSON.stringify(fileContent, null, 2), {
 			mode: 0o600,
 		});
 	} catch (err) {
@@ -52,6 +63,12 @@ export async function saveToken(tokenData: any) {
 function isTokenExpired(tokenData: any) {
 	const now = Date.now();
 	// Check various possible expiry fields
+	if (tokenData.expiry) {
+		const expiryTime = new Date(tokenData.expiry).getTime();
+		if (!isNaN(expiryTime)) {
+			return now >= expiryTime - TOKEN_EXPIRY_BUFFER_MS;
+		}
+	}
 	if (tokenData.expiry_date)
 		return now >= tokenData.expiry_date - TOKEN_EXPIRY_BUFFER_MS;
 	if (tokenData.expires_at)
@@ -110,6 +127,7 @@ export async function getToken() {
 				const updatedData = { ...tokenData, ...newData };
 				if (newData.expires_in) {
 					updatedData.expiry_date = Date.now() + newData.expires_in * 1000;
+					updatedData.expiry = new Date(updatedData.expiry_date).toISOString();
 				}
 
 				await saveToken(updatedData);
