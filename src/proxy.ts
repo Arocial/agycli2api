@@ -163,7 +163,9 @@ async function fetchProject(token: string | null) {
 				cachedProject = { token, project: data.cloudaicompanionProject };
 			}
 		} else {
-			console.warn(`Failed to fetch project info: ${response.status}`);
+			console.warn(
+				`Failed to fetch project info: ${response.status} - ${await response.text()}`,
+			);
 		}
 	} catch (err) {
 		console.warn("Error fetching project info:", (err as Error).message);
@@ -223,7 +225,9 @@ async function fetchModels(
 				return cachedModels.models;
 			}
 		} else {
-			console.warn(`Failed to fetch models: ${response.status}`);
+			console.warn(
+				`Failed to fetch models: ${response.status} - ${await response.text()}`,
+			);
 		}
 	} catch (err) {
 		console.warn("Error fetching models:", (err as Error).message);
@@ -358,6 +362,8 @@ export async function handleGenerateContent(
 		if (!response.ok) {
 			const errText = await response.text();
 			console.error(`Upstream error: ${response.status} - ${errText}`);
+			const ct = response.headers.get("content-type");
+			if (ct) res.setHeader("Content-Type", ct);
 			return res.status(response.status).send(errText);
 		}
 

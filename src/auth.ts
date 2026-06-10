@@ -117,7 +117,7 @@ export async function getToken() {
 				if (!response.ok) {
 					const errText = await response.text();
 					throw new Error(
-						`Refresh failed with status ${response.status}: ${errText}`,
+						`Token refresh failed (${response.status}): ${errText}`,
 					);
 				}
 
@@ -136,9 +136,7 @@ export async function getToken() {
 				return updatedData.access_token;
 			} catch (err) {
 				console.error("Error refreshing token:", (err as Error).message);
-				throw new Error(
-					"Token refresh failed. Please manually log in via antigravity-cli.",
-				);
+				throw new Error(`Token refresh failed. ${(err as Error).message}`);
 			} finally {
 				refreshPromise = null;
 			}
