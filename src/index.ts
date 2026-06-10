@@ -10,7 +10,7 @@ app.use(express.json({ limit: "50mb" }));
 app.post("/v1beta/models/:modelAndAction", (req, res) => {
 	const [model, action] = req.params.modelAndAction.split(":");
 	const isStreaming = action === "streamGenerateContent";
-	return handleGenerateContent(req, res, isStreaming, model);
+	return handleGenerateContent(req, res, isStreaming, model || "");
 });
 
 const PORT = process.env.PORT || 3403;

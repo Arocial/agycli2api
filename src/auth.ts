@@ -1,7 +1,7 @@
 import fs from "fs/promises";
 import os from "os";
 import path from "path";
-import { OAUTH_CONFIG } from "./config.js";
+import { OAUTH_CONFIG, TOKEN_EXPIRY_BUFFER_MS } from "./config.js";
 
 // The requested token path
 const TOKEN_PATH = path.join(
@@ -34,7 +34,8 @@ export async function saveToken(tokenData: any) {
 			!tokenData.expiry_date &&
 			!tokenData.expires_at
 		) {
-			tokenData.expiry_date = Date.now() + tokenData.expires_in * 1000 - 60000;
+			tokenData.expiry_date =
+				Date.now() + tokenData.expires_in * 1000 - TOKEN_EXPIRY_BUFFER_MS;
 		}
 
 		await fs.writeFile(TOKEN_PATH, JSON.stringify(tokenData, null, 2), {
@@ -50,9 +51,11 @@ export async function saveToken(tokenData: any) {
 
 function isTokenExpired(tokenData: any) {
 	const now = Date.now();
-	// Check various possible expiry fields (1 min buffer)
-	if (tokenData.expiry_date) return now >= tokenData.expiry_date - 60000;
-	if (tokenData.expires_at) return now >= tokenData.expires_at - 60000;
+	// Check various possible expiry fields
+	if (tokenData.expiry_date)
+		return now >= tokenData.expiry_date - TOKEN_EXPIRY_BUFFER_MS;
+	if (tokenData.expires_at)
+		return now >= tokenData.expires_at - TOKEN_EXPIRY_BUFFER_MS;
 	// If no absolute timestamp but expires_in exists, assume it needs refresh if we don't know the creation time
 	return false;
 }

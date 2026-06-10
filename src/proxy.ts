@@ -6,6 +6,10 @@ import {
 	ANTIGRAVITY_ENDPOINT_DAILY,
 	ANTIGRAVITY_HEADERS,
 	ANTIGRAVITY_SYSTEM_INSTRUCTION,
+	SESSION_RENEWAL_MS,
+	SESSION_EXPIRY_MS,
+	GC_INTERVAL_MS,
+	MODELS_CACHE_TTL_MS,
 } from "./config.js";
 
 interface Session {
@@ -21,6 +25,20 @@ interface Session {
 
 const sessions = new Map<string, Session>();
 const historyHashToSessionId = new Map<string, string>();
+
+setInterval(() => {
+	const now = Date.now();
+	for (const [key, session] of sessions.entries()) {
+		if (now - session.lastActive > SESSION_EXPIRY_MS) {
+			for (const hash of session.historyHashes) {
+				if (historyHashToSessionId.get(hash) === key) {
+					historyHashToSessionId.delete(hash);
+				}
+			}
+			sessions.delete(key);
+		}
+	}
+}, GC_INTERVAL_MS).unref();
 
 function generateSessionId() {
 	if (process.env.ANTIGRAVITY_SESSION_ID) {
@@ -77,7 +95,7 @@ function getOrCreateSession(
 	let session: Session;
 	if (sessionKey && sessions.has(sessionKey)) {
 		session = sessions.get(sessionKey)!;
-		if (Date.now() - session.lastActive > 30 * 60 * 1000) {
+		if (Date.now() - session.lastActive > SESSION_RENEWAL_MS) {
 			session.conversationId = crypto.randomUUID();
 			session.trajectoryId = crypto.randomUUID();
 			session.stepIndex = 3;
@@ -112,10 +130,17 @@ function getOrCreateSession(
 	return session;
 }
 
-let cachedProject: string | null = null;
+interface CachedProject {
+	token: string;
+	project: string;
+}
+
+let cachedProject: CachedProject | null = null;
 
 async function fetchProject(token: string | null) {
-	if (cachedProject) return cachedProject;
+	if (!token) throw new Error("Token is required to fetch project.");
+	if (cachedProject && cachedProject.token === token)
+		return cachedProject.project;
 	try {
 		const response = await fetch(
 			`${ANTIGRAVITY_ENDPOINT_DAILY}/v1internal:loadCodeAssist`,
@@ -135,7 +160,7 @@ async function fetchProject(token: string | null) {
 		if (response.ok) {
 			const data = await response.json();
 			if (data && data.cloudaicompanionProject) {
-				cachedProject = data.cloudaicompanionProject;
+				cachedProject = { token, project: data.cloudaicompanionProject };
 			}
 		} else {
 			console.warn(`Failed to fetch project info: ${response.status}`);
@@ -143,21 +168,36 @@ async function fetchProject(token: string | null) {
 	} catch (err) {
 		console.warn("Error fetching project info:", (err as Error).message);
 	}
-	if (!cachedProject) {
-		throw new Error("Failed to fetch Google Cloud Code project. Make sure you are authenticated via antigravity-cli.");
+	if (!cachedProject || cachedProject.token !== token) {
+		throw new Error(
+			"Failed to fetch Google Cloud Code project. Make sure you are authenticated via antigravity-cli.",
+		);
 	}
-	return cachedProject;
+	return cachedProject.project;
 }
 
-let cachedModels: Record<string, any> | null = null;
-let modelsFetchTime = 0;
+interface CachedModels {
+	token: string;
+	project: string;
+	models: Record<string, any>;
+	fetchTime: number;
+}
 
-async function fetchModels(token: string, project: string, requestedModel: string) {
-	const isCacheValid = cachedModels && Date.now() - modelsFetchTime < 60 * 60 * 1000;
-	const recentlyFetched = Date.now() - modelsFetchTime < 100000; // 100s cooldown to prevent API spam
+let cachedModels: CachedModels | null = null;
 
-	if (isCacheValid && (cachedModels[requestedModel] || recentlyFetched)) {
-		return cachedModels;
+async function fetchModels(
+	token: string,
+	project: string,
+	requestedModel: string,
+) {
+	const isCacheValid =
+		cachedModels &&
+		cachedModels.token === token &&
+		cachedModels.project === project &&
+		Date.now() - cachedModels.fetchTime < MODELS_CACHE_TTL_MS;
+
+	if (isCacheValid && cachedModels) {
+		return cachedModels.models;
 	}
 	try {
 		const response = await fetch(
@@ -174,9 +214,13 @@ async function fetchModels(token: string, project: string, requestedModel: strin
 		if (response.ok) {
 			const data = await response.json();
 			if (data && data.models) {
-				cachedModels = data.models;
-				modelsFetchTime = Date.now();
-				return cachedModels;
+				cachedModels = {
+					token,
+					project,
+					models: data.models,
+					fetchTime: Date.now(),
+				};
+				return cachedModels.models;
 			}
 		} else {
 			console.warn(`Failed to fetch models: ${response.status}`);
@@ -184,7 +228,7 @@ async function fetchModels(token: string, project: string, requestedModel: strin
 	} catch (err) {
 		console.warn("Error fetching models:", (err as Error).message);
 	}
-	return cachedModels || {};
+	return cachedModels?.models || {};
 }
 
 export async function handleGenerateContent(
@@ -202,7 +246,8 @@ export async function handleGenerateContent(
 
 		// 1. System Instruction Injection (Anti-ban/Anti-lobotomy)
 		let systemInstruction = originalBody.systemInstruction;
-		const shouldInjectSystemPrompt = process.env.INJECT_SYSTEM_PROMPT === "true";
+		const shouldInjectSystemPrompt =
+			process.env.INJECT_SYSTEM_PROMPT === "true";
 
 		if (shouldInjectSystemPrompt) {
 			const systemParts = [
