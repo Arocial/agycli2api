@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import cors from "cors";
 import express from "express";
 import { handleGenerateContent } from "./proxy.js";
@@ -6,12 +7,15 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: "50mb" }));
 
+let isRandomKey = false;
+if (!process.env.AGYCLI2API_KEY) {
+	process.env.AGYCLI2API_KEY = crypto.randomBytes(16).toString("hex");
+	isRandomKey = true;
+}
+
 // API Key Authentication Middleware
 app.use((req, res, next) => {
-	const expectedKey = process.env.API_KEY;
-	if (!expectedKey) {
-		return next();
-	}
+	const expectedKey = process.env.AGYCLI2API_KEY;
 
 	const providedKey =
 		req.query.key ||
@@ -43,11 +47,12 @@ app.listen(PORT, () => {
 	console.log(
 		`Using credentials from ~/.gemini/antigravity-cli/antigravity-oauth-token`,
 	);
-	if (process.env.API_KEY) {
-		console.log(`API Key authentication is ENABLED.`);
-	} else {
+	console.log(
+		`API Key authentication is ENABLED. AGYCLI2API_KEY: ${process.env.AGYCLI2API_KEY}`,
+	);
+	if (isRandomKey) {
 		console.log(
-			`API Key authentication is DISABLED. Set API_KEY environment variable to enable.`,
+			`(The AGYCLI2API_KEY was randomly generated because it was not specified)`,
 		);
 	}
 });

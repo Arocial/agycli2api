@@ -8,6 +8,7 @@ services:
       - '3403:3403'
     environment:
       - PORT=3403
+      - AGYCLI2API_KEY=${AGYCLI2API_KEY:-}
     volumes:
       - gemini-data:/root/.gemini
     restart: unless-stopped

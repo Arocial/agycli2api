@@ -64,7 +64,7 @@ export async function getToken() {
 	if (!cachedTokenData) {
 		cachedTokenData = await readToken();
 	}
-	let tokenData = cachedTokenData;
+	const tokenData = cachedTokenData;
 
 	if (!tokenData || !tokenData.access_token) {
 		throw new Error(

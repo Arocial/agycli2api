@@ -74,6 +74,7 @@ The container's entrypoint script will automatically extract the latest `ANTIGRA
 
 Some behaviors can be configured via environment variables, while others are intentionally hardcoded to maintain compatibility with the official Antigravity IDE plugins.
 
+- **`AGYCLI2API_KEY`**: The API key required to authenticate requests to the proxy server. If not specified, a random key will be generated automatically and printed to the server logs on startup.
 - **`ANTIGRAVITY_VERSION`**: Allows you to override the default Antigravity CLI version (`1.0.6`) used in the `User-Agent`. Set this environment variable if the official client updates and you need to match it.
 - **`ANTIGRAVITY_SESSION_ID`**: The session ID to use for requests. You can find a valid session ID by inspecting the files in `~/.gemini/antigravity-cli/conversations/` or by capturing packets from the official plugin. If not provided, a random session ID will be generated. Try `extract_session_id` script.
 - **`INJECT_SYSTEM_PROMPT`**: Set to `"true"` to enable injection of the Anti-Lobotomy System Instruction into the payload. Disabled by default.
