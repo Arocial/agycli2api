@@ -76,6 +76,41 @@ async function fetchProject(token: string | null) {
 	return cachedProject;
 }
 
+let cachedModels: Record<string, any> | null = null;
+let modelsFetchTime = 0;
+
+async function fetchModels(token: string, project: string) {
+	if (cachedModels && Date.now() - modelsFetchTime < 60 * 60 * 1000) {
+		return cachedModels;
+	}
+	try {
+		const response = await fetch(
+			`${ANTIGRAVITY_ENDPOINT_DAILY}/v1internal:fetchAvailableModels`,
+			{
+				method: "POST",
+				headers: {
+					...ANTIGRAVITY_HEADERS,
+					Authorization: `Bearer ${token}`,
+				},
+				body: JSON.stringify({ project }),
+			},
+		);
+		if (response.ok) {
+			const data = await response.json();
+			if (data && data.models) {
+				cachedModels = data.models;
+				modelsFetchTime = Date.now();
+				return cachedModels;
+			}
+		} else {
+			console.warn(`Failed to fetch models: ${response.status}`);
+		}
+	} catch (err) {
+		console.warn("Error fetching models:", (err as Error).message);
+	}
+	return cachedModels || {};
+}
+
 export async function handleGenerateContent(
 	req: Request,
 	res: Response,
@@ -85,6 +120,8 @@ export async function handleGenerateContent(
 	try {
 		const token = await getToken();
 		const projectName = await fetchProject(token);
+		const availableModels = await fetchModels(token, projectName);
+		const modelEnum = availableModels[model]?.model || "MODEL_PLACEHOLDER_M187";
 		const originalBody = req.body;
 
 		// 1. System Instruction Injection (Anti-ban/Anti-lobotomy)
@@ -139,7 +176,7 @@ export async function handleGenerateContent(
 				toolConfig: toolConfig,
 				labels: {
 					last_step_index: String(stepIndex - 1),
-					model_enum: "MODEL_PLACEHOLDER_M187",
+					model_enum: modelEnum,
 					trajectory_id: trajectoryId,
 					used_claude: "false",
 					used_claude_conservative: "false",
