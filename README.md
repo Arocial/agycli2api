@@ -40,6 +40,7 @@ The server will run on port `3403` by default.
 ```bash
 curl -X POST http://localhost:3403/v1beta/models/gemini-3-flash:generateContent \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
   -d '{
     "contents": [{
       "parts": [{"text": "Hello, how are you?"}],
