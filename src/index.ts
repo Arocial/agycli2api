@@ -9,9 +9,8 @@ app.use(express.json({ limit: "50mb" }));
 // Standard Gemini endpoints proxy mapped to Cloud Code
 app.post("/v1beta/models/:modelAndAction", (req, res) => {
 	const [model, action] = req.params.modelAndAction.split(":");
-	(req.params as any).model = model;
 	const isStreaming = action === "streamGenerateContent";
-	return handleGenerateContent(req, res, isStreaming);
+	return handleGenerateContent(req, res, isStreaming, model);
 });
 
 const PORT = process.env.PORT || 3403;

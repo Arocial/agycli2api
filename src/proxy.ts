@@ -70,18 +70,21 @@ async function fetchProject(token: string | null) {
 	} catch (err) {
 		console.warn("Error fetching project info:", (err as Error).message);
 	}
-	return cachedProject || "kinetic-text-bkvbm";
+	if (!cachedProject) {
+		throw new Error("Failed to fetch Google Cloud Code project. Make sure you are authenticated via antigravity-cli.");
+	}
+	return cachedProject;
 }
 
 export async function handleGenerateContent(
 	req: Request,
 	res: Response,
 	isStreaming: boolean,
+	model: string,
 ) {
 	try {
 		const token = await getToken();
 		const projectName = await fetchProject(token);
-		const model = req.params.model;
 		const originalBody = req.body;
 
 		// 1. System Instruction Injection (Anti-ban/Anti-lobotomy)
@@ -126,15 +129,6 @@ export async function handleGenerateContent(
 			},
 		};
 
-		const generationConfig = {
-			maxOutputTokens: 65536,
-			thinkingConfig: {
-				includeThoughts: true,
-				thinkingBudget: 1000,
-			},
-			...(originalBody.generationConfig || {}),
-		};
-
 		const payload = {
 			project: projectName,
 			requestId: requestId,
@@ -150,10 +144,10 @@ export async function handleGenerateContent(
 					used_claude: "false",
 					used_claude_conservative: "false",
 				},
-				generationConfig: generationConfig,
+				generationConfig: originalBody.generationConfig,
 				sessionId: sessionId,
 			},
-			model: model || "gemini-3.5-flash-extra-low",
+			model: model,
 			userAgent: "antigravity",
 			requestType: "agent",
 		};

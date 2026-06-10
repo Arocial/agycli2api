@@ -14,10 +14,6 @@ function generateSmartUserAgent() {
 	return `antigravity/cli/${version} ${osName}/${archName}`;
 }
 
-export function getClientVersion() {
-	return process.env.ANTIGRAVITY_CLIENT_VERSION_FALLBACK || "1.110.0";
-}
-
 export const ANTIGRAVITY_HEADERS = {
 	"User-Agent": generateSmartUserAgent(),
 	"Content-Type": "application/json",

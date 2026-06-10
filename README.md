@@ -50,3 +50,14 @@ curl -X POST http://localhost:8080/v1beta/models/gemini-1.5-pro:generateContent 
     }]
   }'
 ```
+
+## Configuration
+
+Some behaviors can be configured via environment variables, while others are intentionally hardcoded to maintain compatibility with the official Antigravity IDE plugins.
+
+- **`FALLBACK_ANTIGRAVITY_VERSION`**: Allows you to override the default Antigravity CLI version (`1.0.6`) used in the `User-Agent`. Set this environment variable if the official client updates and you need to match it.
+
+**Hardcoded Configurations (Do not modify unless official endpoints/credentials change):**
+- **`OAUTH_CONFIG`**: The OAuth Client ID and Secret are hardcoded to match the official desktop CLI. Changing these will break authentication.
+- **`ANTIGRAVITY_ENDPOINT_DAILY`**: Points to `daily-cloudcode-pa.googleapis.com` internally.
+- **`ANTIGRAVITY_SYSTEM_INSTRUCTION`**: System instructions are injected into the payload automatically to prevent lobotomy.

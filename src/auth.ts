@@ -11,6 +11,9 @@ const TOKEN_PATH = path.join(
 	"antigravity-oauth-token",
 );
 
+let cachedTokenData: any = null;
+let refreshPromise: Promise<string> | null = null;
+
 export async function readToken() {
 	try {
 		const data = await fs.readFile(TOKEN_PATH, "utf8");
@@ -55,7 +58,10 @@ function isTokenExpired(tokenData: any) {
 }
 
 export async function getToken() {
-	let tokenData = await readToken();
+	if (!cachedTokenData) {
+		cachedTokenData = await readToken();
+	}
+	let tokenData = cachedTokenData;
 
 	if (!tokenData || !tokenData.access_token) {
 		throw new Error(
@@ -71,42 +77,53 @@ export async function getToken() {
 			);
 		}
 
-		try {
-			const response = await fetch(OAUTH_CONFIG.tokenUrl, {
-				method: "POST",
-				headers: { "Content-Type": "application/x-www-form-urlencoded" },
-				body: new URLSearchParams({
-					client_id: OAUTH_CONFIG.clientId,
-					client_secret: OAUTH_CONFIG.clientSecret,
-					refresh_token: tokenData.refresh_token,
-					grant_type: "refresh_token",
-				}),
-			});
-
-			if (!response.ok) {
-				const errText = await response.text();
-				throw new Error(
-					`Refresh failed with status ${response.status}: ${errText}`,
-				);
-			}
-
-			const newData = await response.json();
-
-			// Merge with existing data (preserve refresh_token if new one not provided)
-			const updatedData = { ...tokenData, ...newData };
-			if (newData.expires_in) {
-				updatedData.expiry_date = Date.now() + newData.expires_in * 1000;
-			}
-
-			await saveToken(updatedData);
-			tokenData = updatedData;
-			console.log("Token successfully refreshed and saved.");
-		} catch (err) {
-			console.error("Error refreshing token:", (err as Error).message);
-			throw new Error(
-				"Token refresh failed. Please manually log in via antigravity-cli.",
-			);
+		if (refreshPromise) {
+			return refreshPromise;
 		}
+
+		refreshPromise = (async () => {
+			try {
+				const response = await fetch(OAUTH_CONFIG.tokenUrl, {
+					method: "POST",
+					headers: { "Content-Type": "application/x-www-form-urlencoded" },
+					body: new URLSearchParams({
+						client_id: OAUTH_CONFIG.clientId,
+						client_secret: OAUTH_CONFIG.clientSecret,
+						refresh_token: tokenData.refresh_token,
+						grant_type: "refresh_token",
+					}),
+				});
+
+				if (!response.ok) {
+					const errText = await response.text();
+					throw new Error(
+						`Refresh failed with status ${response.status}: ${errText}`,
+					);
+				}
+
+				const newData = await response.json();
+
+				// Merge with existing data (preserve refresh_token if new one not provided)
+				const updatedData = { ...tokenData, ...newData };
+				if (newData.expires_in) {
+					updatedData.expiry_date = Date.now() + newData.expires_in * 1000;
+				}
+
+				await saveToken(updatedData);
+				cachedTokenData = updatedData;
+				console.log("Token successfully refreshed and saved.");
+				return updatedData.access_token;
+			} catch (err) {
+				console.error("Error refreshing token:", (err as Error).message);
+				throw new Error(
+					"Token refresh failed. Please manually log in via antigravity-cli.",
+				);
+			} finally {
+				refreshPromise = null;
+			}
+		})();
+
+		return refreshPromise;
 	}
 
 	return tokenData.access_token;
