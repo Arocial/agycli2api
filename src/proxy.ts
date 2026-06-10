@@ -23,6 +23,9 @@ const sessions = new Map<string, Session>();
 const historyHashToSessionId = new Map<string, string>();
 
 function generateSessionId() {
+	if (process.env.ANTIGRAVITY_SESSION_ID) {
+		return process.env.ANTIGRAVITY_SESSION_ID;
+	}
 	const high = Math.floor(Math.random() * 0xffffffff);
 	const low = Math.floor(Math.random() * 0xffffffff);
 	const isNegative = Math.random() < 0.5;

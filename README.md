@@ -64,6 +64,7 @@ To accurately simulate the telemetry and behavior of the official Antigravity ID
 Some behaviors can be configured via environment variables, while others are intentionally hardcoded to maintain compatibility with the official Antigravity IDE plugins.
 
 - **`FALLBACK_ANTIGRAVITY_VERSION`**: Allows you to override the default Antigravity CLI version (`1.0.6`) used in the `User-Agent`. Set this environment variable if the official client updates and you need to match it.
+- **`ANTIGRAVITY_SESSION_ID`**: The session ID to use for requests. You can find a valid session ID by inspecting the files in `~/.gemini/antigravity-cli/conversations/` or by capturing packets (抓包) from the official plugin. If not provided, a random session ID will be generated.
 
 **Hardcoded Configurations (Do not modify unless official endpoints/credentials change):**
 - **`OAUTH_CONFIG`**: The OAuth Client ID and Secret are hardcoded to match the official desktop CLI. Changing these will break authentication.
