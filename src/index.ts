@@ -39,7 +39,7 @@ app.post("/v1beta/models/:modelAndAction", (req, res) => {
 
 const PORT = process.env.PORT || 3403;
 app.listen(PORT, () => {
-	console.log(`agy-cli-proxy running on http://localhost:${PORT}`);
+	console.log(`agycli2api running on http://localhost:${PORT}`);
 	console.log(
 		`Using credentials from ~/.gemini/antigravity-cli/antigravity-oauth-token`,
 	);

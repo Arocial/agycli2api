@@ -1,9 +1,9 @@
 services:
-  agy-cli-proxy:
+  agycli2api:
     build:
       context: ..
       dockerfile: docker/Dockerfile
-    image: ghcr.io/arocial/agy-cli-proxy:latest
+    image: ghcr.io/arocial/agycli2api:latest
     ports:
       - '3403:3403'
     environment:

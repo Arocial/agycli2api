@@ -1,5 +1,5 @@
 {
-	"name": "agy-cli-proxy",
+	"name": "agycli2api",
 	"version": "1.0.0",
 	"description": "Simplified Gemini API proxy for Antigravity",
 	"main": "dist/index.js",

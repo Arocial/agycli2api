@@ -1,4 +1,4 @@
-# agy-cli-proxy
+# agycli2api
 
 A lightweight, single-user API proxy for Antigravity, exposing a standard Gemini API but proxying the requests to Google's Cloud Code (`daily-cloudcode-pa.googleapis.com`) infrastructure.
 
