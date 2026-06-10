@@ -79,8 +79,11 @@ async function fetchProject(token: string | null) {
 let cachedModels: Record<string, any> | null = null;
 let modelsFetchTime = 0;
 
-async function fetchModels(token: string, project: string) {
-	if (cachedModels && Date.now() - modelsFetchTime < 60 * 60 * 1000) {
+async function fetchModels(token: string, project: string, requestedModel: string) {
+	const isCacheValid = cachedModels && Date.now() - modelsFetchTime < 60 * 60 * 1000;
+	const recentlyFetched = Date.now() - modelsFetchTime < 100000; // 100s cooldown to prevent API spam
+
+	if (isCacheValid && (cachedModels[requestedModel] || recentlyFetched)) {
 		return cachedModels;
 	}
 	try {
@@ -120,7 +123,7 @@ export async function handleGenerateContent(
 	try {
 		const token = await getToken();
 		const projectName = await fetchProject(token);
-		const availableModels = await fetchModels(token, projectName);
+		const availableModels = await fetchModels(token, projectName, model);
 		const modelEnum = availableModels[model]?.model || "MODEL_PLACEHOLDER_M187";
 		const originalBody = req.body;
 
