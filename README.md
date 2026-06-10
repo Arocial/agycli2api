@@ -51,6 +51,14 @@ curl -X POST http://localhost:8080/v1beta/models/gemini-1.5-pro:generateContent 
   }'
 ```
 
+## Proxy Logic & Telemetry Simulation
+
+To accurately simulate the telemetry and behavior of the official Antigravity IDE plugins, the proxy implements sophisticated session and step tracking logic:
+
+- **Session Identification via Content Hashing**: Since the API receives stateless requests, the proxy hashes the conversation history (`contents`) to correlate incoming requests and group them into persistent logical sessions.
+- **Dynamic Step Indexing**: To mimic real IDE background step progression, the `stepIndex` for a new session starts at `3`. For subsequent requests in the same session, the index randomly increments by `2` to `5` steps each time.
+- **Execution ID Injection**: The proxy keeps track of user message counts to identify distinct user turns. For any non-first user turn within a session, a random UUID is generated as the `last_execution_id` and automatically injected into the outgoing request labels.
+
 ## Configuration
 
 Some behaviors can be configured via environment variables, while others are intentionally hardcoded to maintain compatibility with the official Antigravity IDE plugins.
