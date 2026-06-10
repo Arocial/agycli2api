@@ -8,7 +8,7 @@ RUN npm run build
 
 FROM node:22-slim
 # Install binutils for strings command
-RUN apt-get update && apt-get install -y binutils && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y binutils curl && rm -rf /var/lib/apt/lists/*
 
 # Install antigravity-cli
 RUN set -e && \

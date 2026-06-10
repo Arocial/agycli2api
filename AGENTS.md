@@ -21,3 +21,11 @@ The source code is written in TypeScript and resides in the `src` directory:
 - **Running locally**: Use `npm run dev` to start a development server with `nodemon` and `tsx` that auto-reloads on changes.
 - **TypeScript**: The project uses TypeScript. Ensure proper types or interfaces are defined when adding new functionality.
 - **Streaming Support**: `proxy.ts` handles Server-Sent Events (SSE). Be careful when modifying response handling in `handleGenerateContent` so that streaming functionality remains unbroken.
+
+## Docker Support
+
+The `docker` directory contains files for building and running the project in a containerized environment:
+
+- **`docker/Dockerfile`**: A multi-stage build that compiles the TypeScript code and sets up a production Node environment. It also installs the official `antigravity-cli` inside the container to dynamically extract and export the latest `ANTIGRAVITY_VERSION`.
+- **`docker/docker-compose.yml`**: Configures the service, binds port `3403`, and uses a named volume `gemini-data` mapped to `/root/.gemini` to persist the OAuth tokens and conversation states.
+- **`docker/entrypoint.sh`**: A startup script that sources the `ANTIGRAVITY_VERSION` and extracts a valid `ANTIGRAVITY_SESSION_ID` directly from the mounted SQLite databases before executing the Node application.

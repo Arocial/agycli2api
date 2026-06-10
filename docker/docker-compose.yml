@@ -9,5 +9,8 @@ services:
     environment:
       - PORT=3403
     volumes:
-      - ~/.gemini:/root/.gemini
+      - gemini-data:/root/.gemini
     restart: unless-stopped
+
+volumes:
+  gemini-data:

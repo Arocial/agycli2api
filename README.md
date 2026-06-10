@@ -56,6 +56,20 @@ To accurately simulate the telemetry and behavior of the official Antigravity ID
 - **Dynamic Step Indexing**: To mimic real IDE background step progression, the `stepIndex` for a new session starts at `3`. For subsequent requests in the same session, the index randomly increments by `2` to `5` steps each time.
 - **Execution ID Injection**: The proxy keeps track of user message counts to identify distinct user turns. For any non-first user turn within a session, a random UUID is generated as the `last_execution_id` and automatically injected into the outgoing request labels.
 
+## Docker Deployment
+
+You can run `agycli2api` using Docker. A `docker-compose.yml` file is provided in the `docker` directory.
+
+1. Ensure you have run `agy -p hi` locally first to generate the necessary credentials and a valid session database.
+2. The Docker setup uses a named volume `gemini-data` for the `/root/.gemini` directory. You will need to copy your local `~/.gemini` contents into this volume (or mount it appropriately) for the proxy to access the OAuth token and conversation databases.
+3. Start the container:
+
+```bash
+docker-compose -f docker/docker-compose.yml up -d
+```
+
+The container's entrypoint script will automatically extract the latest `ANTIGRAVITY_VERSION` and a valid `ANTIGRAVITY_SESSION_ID` for you.
+
 ## Configuration
 
 Some behaviors can be configured via environment variables, while others are intentionally hardcoded to maintain compatibility with the official Antigravity IDE plugins.
