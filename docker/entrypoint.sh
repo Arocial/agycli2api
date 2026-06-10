@@ -8,15 +8,16 @@ if [ -z "$ANTIGRAVITY_VERSION" ]; then
 fi
 
 if ! ls -t ~/.gemini/antigravity-cli/conversations/*.db; then
-    echo "No antigravity cli conversion found. creating one."
-    agy -p hi
+    echo No antigravity cli conversion found. create one by run '~/.local/bin/agy -p "reply hi"'
+    while ! ls -t ~/.gemini/antigravity-cli/conversations/*.db; do echo still waiting; sleep 5; done
+    sleep 5
 fi
 # Extract ANTIGRAVITY_SESSION_ID using the original logic
 export ANTIGRAVITY_SESSION_ID=$(ls -t ~/.gemini/antigravity-cli/conversations/*.db 2>/dev/null | head -1 | xargs strings 2>/dev/null | grep -A 1 "sessionID" | head -2 | grep -oP '\-?\d+')
 
 if [ -z "$ANTIGRAVITY_SESSION_ID" ]; then
-    echo "ANTIGRAVITY_SESSION_ID is empty. check your antigravity-cli status."
-    exit 1
+    echo "ANTIGRAVITY_SESSION_ID is empty. check your antigravity-cli status and restart"
+    sleep 1d
 fi
 
 # Execute the main process
