@@ -8,7 +8,19 @@ import {
 	ANTIGRAVITY_SYSTEM_INSTRUCTION,
 } from "./config.js";
 
-const sessions = new Map();
+interface Session {
+	conversationId: string;
+	trajectoryId: string;
+	stepIndex: number;
+	sessionId: string;
+	lastActive: number;
+	historyHashes: Set<string>;
+	lastUserMsgCnt: number;
+	lastExecutionId: string | null;
+}
+
+const sessions = new Map<string, Session>();
+const historyHashToSessionId = new Map<string, string>();
 
 function generateSessionId() {
 	const high = Math.floor(Math.random() * 0xffffffff);
@@ -18,29 +30,79 @@ function generateSessionId() {
 	return (isNegative ? "-" : "") + absVal.toString();
 }
 
-function getOrCreateSession(token: string | null) {
-	const key = token || "default";
-	if (!sessions.has(key)) {
-		sessions.set(key, {
-			conversationId: crypto.randomUUID(),
-			trajectoryId: crypto.randomUUID(),
-			stepIndex: 1,
-			sessionId: generateSessionId(),
-			lastActive: Date.now(),
-		});
-	} else {
-		const session = sessions.get(key);
+function calculateHistoryHash(
+	contents: any[],
+	excludeLast: boolean,
+	identity: string,
+): string | null {
+	if (!contents || !Array.isArray(contents)) return null;
+
+	const userTexts: string[] = [];
+	for (const msg of contents) {
+		if (msg.role === "user" && Array.isArray(msg.parts)) {
+			const text = msg.parts.map((p: any) => p.text || "").join("");
+			userTexts.push(text);
+		}
+	}
+
+	if (excludeLast && userTexts.length > 0) {
+		userTexts.pop();
+	}
+
+	if (userTexts.length === 0) {
+		return null;
+	}
+
+	const combined = identity + "\n###\n" + userTexts.join("\n---\n");
+	return crypto.createHash("sha256").update(combined).digest("hex");
+}
+
+function getOrCreateSession(contents: any[], token: string | null) {
+	const identity = token || "default";
+	const historyHash = calculateHistoryHash(contents, true, identity);
+	const newHistoryHash = calculateHistoryHash(contents, false, identity);
+
+	let sessionKey: string | null = null;
+	if (historyHash && historyHashToSessionId.has(historyHash)) {
+		sessionKey = historyHashToSessionId.get(historyHash)!;
+	}
+
+	let session: Session;
+	if (sessionKey && sessions.has(sessionKey)) {
+		session = sessions.get(sessionKey)!;
 		if (Date.now() - session.lastActive > 30 * 60 * 1000) {
 			session.conversationId = crypto.randomUUID();
 			session.trajectoryId = crypto.randomUUID();
-			session.stepIndex = 1;
+			session.stepIndex = 3;
 			session.sessionId = generateSessionId();
+			session.historyHashes = new Set();
+			session.lastUserMsgCnt = -1;
+			session.lastExecutionId = null;
 		} else {
-			session.stepIndex += 1;
+			session.stepIndex += Math.floor(Math.random() * 4) + 2;
 		}
 		session.lastActive = Date.now();
+	} else {
+		sessionKey = crypto.randomUUID();
+		session = {
+			conversationId: crypto.randomUUID(),
+			trajectoryId: crypto.randomUUID(),
+			stepIndex: 3,
+			sessionId: generateSessionId(),
+			lastActive: Date.now(),
+			historyHashes: new Set(),
+			lastUserMsgCnt: -1,
+			lastExecutionId: null,
+		};
+		sessions.set(sessionKey, session);
 	}
-	return sessions.get(key);
+
+	if (newHistoryHash) {
+		session.historyHashes.add(newHistoryHash);
+		historyHashToSessionId.set(newHistoryHash, sessionKey);
+	}
+
+	return session;
 }
 
 let cachedProject: string | null = null;
@@ -156,7 +218,20 @@ export async function handleGenerateContent(
 		};
 
 		// 2. Wrap/Simulate realistic metadata
-		const session = getOrCreateSession(token);
+		const contents = originalBody.contents || [];
+		const session = getOrCreateSession(contents, token);
+
+		const userMsgCnt = contents.filter(
+			(m: any) => m.role === "user" && m.parts?.some((p: any) => "text" in p),
+		).length;
+
+		if (userMsgCnt > session.lastUserMsgCnt) {
+			session.lastUserMsgCnt = userMsgCnt;
+			if (userMsgCnt > 1) {
+				session.lastExecutionId = crypto.randomUUID();
+			}
+		}
+
 		const conversationId =
 			req.headers["x-conversation-id"] || session.conversationId;
 		const trajectoryId = req.headers["x-trajectory-id"] || session.trajectoryId;
@@ -173,21 +248,27 @@ export async function handleGenerateContent(
 			},
 		};
 
+		const labels: Record<string, string> = {
+			last_step_index: String(stepIndex - 1),
+			model_enum: modelEnum,
+			trajectory_id: trajectoryId,
+			used_claude: "false",
+			used_claude_conservative: "false",
+		};
+
+		if (session.lastExecutionId) {
+			labels.last_execution_id = session.lastExecutionId;
+		}
+
 		const payload = {
 			project: projectName,
 			requestId: requestId,
 			request: {
-				contents: originalBody.contents || [],
+				contents: contents,
 				systemInstruction: systemInstruction,
 				tools: originalBody.tools || [],
 				toolConfig: toolConfig,
-				labels: {
-					last_step_index: String(stepIndex - 1),
-					model_enum: modelEnum,
-					trajectory_id: trajectoryId,
-					used_claude: "false",
-					used_claude_conservative: "false",
-				},
+				labels: labels,
 				generationConfig: originalBody.generationConfig,
 				sessionId: sessionId,
 			},
