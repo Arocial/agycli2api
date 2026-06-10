@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { Readable } from "node:stream";
+import { Readable, Transform } from "node:stream";
 import type { Request, Response } from "express";
 import { getToken } from "./auth.js";
 import {
@@ -393,13 +393,59 @@ export async function handleGenerateContent(
 				const readable = Readable.fromWeb(
 					response.body as Parameters<typeof Readable.fromWeb>[0],
 				);
-				readable.pipe(res);
+				let buffer = "";
+				const sseTransform = new Transform({
+					transform(chunk, _encoding, callback) {
+						buffer += chunk.toString("utf-8");
+						let newlineIndex = buffer.indexOf("\n");
+						while (newlineIndex >= 0) {
+							let line = buffer.slice(0, newlineIndex);
+							buffer = buffer.slice(newlineIndex + 1);
+							if (line.endsWith("\r")) {
+								line = line.slice(0, -1);
+							}
+
+							if (line.startsWith("data: ")) {
+								const dataStr = line.slice(6);
+								if (dataStr.trim() === "[DONE]") {
+									this.push(`data: [DONE]\n`);
+								} else {
+									try {
+										const parsed = JSON.parse(dataStr);
+										if (parsed?.response) {
+											this.push(`data: ${JSON.stringify(parsed.response)}\n`);
+										} else {
+											this.push(`data: ${dataStr}\n`);
+										}
+									} catch (_e) {
+										this.push(`data: ${dataStr}\n`);
+									}
+								}
+							} else {
+								this.push(`${line}\n`);
+							}
+							newlineIndex = buffer.indexOf("\n");
+						}
+						callback();
+					},
+					flush(callback) {
+						if (buffer) {
+							this.push(buffer);
+						}
+						callback();
+					},
+				});
+				readable.pipe(sseTransform).pipe(res);
 			} else {
 				res.end();
 			}
 		} else {
 			const data = await response.json();
-			res.json(data);
+			if (data?.response) {
+				res.json(data.response);
+			} else {
+				res.json(data);
+			}
 		}
 	} catch (err) {
 		console.error("Error in proxy:", err);
