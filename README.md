@@ -6,7 +6,7 @@ A lightweight, single-user API proxy for Antigravity, exposing a standard Gemini
 
 - **Standard Gemini API**: Clients can just send Gemini standard requests to `/v1beta/models/:model:generateContent`.
 - **Anti-Ban Workarounds**: Automatically rewrites User-Agent, Client versions, and headers to match the official Antigravity IDE plugins.
-- **Anti-Lobotomy**: Injects the required System Instructions without causing the model to identify unnecessarily as Antigravity to the user.
+- **Anti-Lobotomy**: Optionally injects the required System Instructions without causing the model to identify unnecessarily as Antigravity to the user (disabled by default).
 - **Streaming Support**: Full Server-Sent Events (SSE) pass-through.
 - **Seamless Authentication**: Directly reads and automatically refreshes tokens managed by `antigravity-cli`.
 
@@ -65,8 +65,9 @@ Some behaviors can be configured via environment variables, while others are int
 
 - **`FALLBACK_ANTIGRAVITY_VERSION`**: Allows you to override the default Antigravity CLI version (`1.0.6`) used in the `User-Agent`. Set this environment variable if the official client updates and you need to match it.
 - **`ANTIGRAVITY_SESSION_ID`**: The session ID to use for requests. You can find a valid session ID by inspecting the files in `~/.gemini/antigravity-cli/conversations/` or by capturing packets (抓包) from the official plugin. If not provided, a random session ID will be generated.
+- **`INJECT_SYSTEM_PROMPT`**: Set to `"true"` to enable injection of the Anti-Lobotomy System Instruction into the payload. Disabled by default.
 
 **Hardcoded Configurations (Do not modify unless official endpoints/credentials change):**
 - **`OAUTH_CONFIG`**: The OAuth Client ID and Secret are hardcoded to match the official desktop CLI. Changing these will break authentication.
 - **`ANTIGRAVITY_ENDPOINT_DAILY`**: Points to `daily-cloudcode-pa.googleapis.com` internally.
-- **`ANTIGRAVITY_SYSTEM_INSTRUCTION`**: System instructions are injected into the payload automatically to prevent lobotomy.
+- **`ANTIGRAVITY_SYSTEM_INSTRUCTION`**: The Anti-Lobotomy system instruction payload itself.
