@@ -1,0 +1,2 @@
+#! /bin/bash
+ls ~/.gemini/antigravity-cli/conversations/*.db | head -1 | xargs strings  | grep -A 1 "sessionID"| head -2 | grep -oP '\-?\d+'
