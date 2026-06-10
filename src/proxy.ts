@@ -49,20 +49,24 @@ async function fetchProject(token: string | null) {
 	if (cachedProject) return cachedProject;
 	try {
 		const response = await fetch(
-			`${ANTIGRAVITY_ENDPOINT_DAILY}/v1internal:fetchUserInfo`,
+			`${ANTIGRAVITY_ENDPOINT_DAILY}/v1internal:loadCodeAssist`,
 			{
 				method: "POST",
 				headers: {
 					...ANTIGRAVITY_HEADERS,
 					Authorization: `Bearer ${token}`,
 				},
-				body: "{}",
+				body: JSON.stringify({
+					metadata: {
+						ideType: "ANTIGRAVITY",
+					},
+				}),
 			},
 		);
 		if (response.ok) {
 			const data = await response.json();
-			if (data && data.project) {
-				cachedProject = data.project;
+			if (data && data.cloudaicompanionProject) {
+				cachedProject = data.cloudaicompanionProject;
 			}
 		} else {
 			console.warn(`Failed to fetch project info: ${response.status}`);
