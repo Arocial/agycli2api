@@ -1,0 +1,11 @@
+services:
+  agy-cli-proxy:
+    build: .
+    image: agy-cli-proxy:latest
+    ports:
+      - '8080:8080'
+    environment:
+      - PORT=8080
+    volumes:
+      - ~/.gemini:/root/.gemini
+    restart: unless-stopped
