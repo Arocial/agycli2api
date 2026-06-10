@@ -1,11 +1,11 @@
 services:
   agy-cli-proxy:
     build: .
-    image: agy-cli-proxy:latest
+    image: ghcr.io/arocial/agy-cli-proxy:latest
     ports:
-      - '8080:8080'
+      - '3403:3403'
     environment:
-      - PORT=8080
+      - PORT=3403
     volumes:
       - ~/.gemini:/root/.gemini
     restart: unless-stopped
