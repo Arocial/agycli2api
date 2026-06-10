@@ -262,8 +262,74 @@ export async function handleGenerateContent(
 		const token = await getToken();
 		const projectName = await fetchProject(token);
 		const availableModels = await fetchModels(token, projectName, model);
-		const modelEnum = availableModels[model]?.model || "MODEL_PLACEHOLDER_M187";
+		const modelConfig = availableModels[model] as
+			| {
+					model?: string;
+					maxOutputTokens?: number;
+					supportsThinking?: boolean;
+					thinkingBudget?: number;
+					[key: string]: unknown;
+			  }
+			| undefined;
+		const modelEnum = modelConfig?.model || "MODEL_PLACEHOLDER_M187";
 		const originalBody = req.body;
+
+		let generationConfig = originalBody.generationConfig;
+		if (modelConfig) {
+			const hasMaxOutputTokens =
+				typeof modelConfig.maxOutputTokens === "number";
+			const hasSupportsThinking =
+				typeof modelConfig.supportsThinking === "boolean";
+			const hasThinkingBudget = typeof modelConfig.thinkingBudget === "number";
+
+			if (hasMaxOutputTokens || hasSupportsThinking || hasThinkingBudget) {
+				const baseConfig =
+					typeof generationConfig === "object" && generationConfig !== null
+						? { ...generationConfig }
+						: {};
+
+				if (hasMaxOutputTokens && baseConfig.maxOutputTokens === undefined) {
+					baseConfig.maxOutputTokens =
+						(modelConfig.maxOutputTokens as number);
+				}
+
+				const originalThinkingConfig =
+					typeof baseConfig.thinkingConfig === "object" &&
+					baseConfig.thinkingConfig !== null
+						? { ...baseConfig.thinkingConfig }
+						: undefined;
+
+				let thinkingConfig = originalThinkingConfig;
+
+				if (
+					hasSupportsThinking ||
+					hasThinkingBudget ||
+					originalThinkingConfig
+				) {
+					thinkingConfig = thinkingConfig || {};
+					if (
+						hasSupportsThinking &&
+						thinkingConfig.includeThoughts === undefined
+					) {
+						thinkingConfig.includeThoughts = modelConfig.supportsThinking;
+					}
+					if (
+						hasThinkingBudget &&
+						thinkingConfig.thinkingBudget === undefined
+					) {
+						thinkingConfig.thinkingBudget = modelConfig.thinkingBudget;
+					}
+				}
+
+				if (thinkingConfig && Object.keys(thinkingConfig).length > 0) {
+					baseConfig.thinkingConfig = thinkingConfig;
+				}
+
+				if (Object.keys(baseConfig).length > 0) {
+					generationConfig = baseConfig;
+				}
+			}
+		}
 
 		// 1. System Instruction Injection (Anti-ban/Anti-lobotomy)
 		let systemInstruction = originalBody.systemInstruction;
@@ -343,7 +409,7 @@ export async function handleGenerateContent(
 				tools: originalBody.tools || [],
 				toolConfig: toolConfig,
 				labels: labels,
-				generationConfig: originalBody.generationConfig,
+				generationConfig: generationConfig,
 				sessionId: sessionId,
 			},
 			model: model,
