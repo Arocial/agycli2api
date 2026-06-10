@@ -3,6 +3,41 @@ import { Readable } from 'stream';
 import { ANTIGRAVITY_HEADERS, ANTIGRAVITY_ENDPOINT_DAILY, ANTIGRAVITY_SYSTEM_INSTRUCTION } from './config.js';
 import { getToken } from './auth.js';
 
+const sessions = new Map();
+
+function generateSessionId() {
+    const high = Math.floor(Math.random() * 0xffffffff);
+    const low = Math.floor(Math.random() * 0xffffffff);
+    const isNegative = Math.random() < 0.5;
+    const absVal = BigInt(high) * 0x100000000n + BigInt(low);
+    return (isNegative ? '-' : '') + absVal.toString();
+}
+
+function getOrCreateSession(token) {
+    const key = token || 'default';
+    if (!sessions.has(key)) {
+        sessions.set(key, {
+            conversationId: crypto.randomUUID(),
+            trajectoryId: crypto.randomUUID(),
+            stepIndex: 1,
+            sessionId: generateSessionId(),
+            lastActive: Date.now()
+        });
+    } else {
+        const session = sessions.get(key);
+        if (Date.now() - session.lastActive > 30 * 60 * 1000) {
+            session.conversationId = crypto.randomUUID();
+            session.trajectoryId = crypto.randomUUID();
+            session.stepIndex = 1;
+            session.sessionId = generateSessionId();
+        } else {
+            session.stepIndex += 1;
+        }
+        session.lastActive = Date.now();
+    }
+    return sessions.get(key);
+}
+
 export async function handleGenerateContent(req, res, isStreaming) {
     try {
         const token = await getToken();
@@ -23,19 +58,56 @@ export async function handleGenerateContent(req, res, isStreaming) {
             }
         }
 
-        originalBody.systemInstruction = {
+        const systemInstruction = {
             role: 'user',
             parts: systemParts
         };
 
-        // 2. Wrap the payload
+        // 2. Wrap/Simulate realistic metadata
+        const session = getOrCreateSession(token);
+        const conversationId = req.headers['x-conversation-id'] || session.conversationId;
+        const trajectoryId = req.headers['x-trajectory-id'] || session.trajectoryId;
+        const stepIndex = req.headers['x-step-index'] ? parseInt(req.headers['x-step-index'], 10) : session.stepIndex;
+        const sessionId = session.sessionId;
+        const timestamp = Date.now();
+        const requestId = `agent/${conversationId}/${timestamp}/${trajectoryId}/${stepIndex}`;
+
+        const toolConfig = originalBody.toolConfig || {
+            functionCallingConfig: {
+                mode: "VALIDATED"
+            }
+        };
+
+        const generationConfig = {
+            maxOutputTokens: 65536,
+            thinkingConfig: {
+                includeThoughts: true,
+                thinkingBudget: 1000
+            },
+            ...(originalBody.generationConfig || {})
+        };
+
         const payload = {
-            project: 'rising-fact-p41fc',
-            model: model,
-            request: originalBody,
+            project: 'kinetic-text-bkvbm',
+            requestId: requestId,
+            request: {
+                contents: originalBody.contents || [],
+                systemInstruction: systemInstruction,
+                tools: originalBody.tools || [],
+                toolConfig: toolConfig,
+                labels: {
+                    last_step_index: String(stepIndex - 1),
+                    model_enum: "MODEL_PLACEHOLDER_M187",
+                    trajectory_id: trajectoryId,
+                    used_claude: "false",
+                    used_claude_conservative: "false"
+                },
+                generationConfig: generationConfig,
+                sessionId: sessionId
+            },
+            model: model || 'gemini-3.5-flash-extra-low',
             userAgent: 'antigravity',
-            requestType: 'agent',
-            requestId: 'agent-' + crypto.randomUUID()
+            requestType: 'agent'
         };
 
         // 3. Prepare headers

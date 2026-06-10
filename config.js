@@ -1,11 +1,12 @@
 import os from 'os';
 
 function generateSmartUserAgent() {
-    const version = process.env.FALLBACK_ANTIGRAVITY_VERSION || '2.0.3';
+    const version = process.env.FALLBACK_ANTIGRAVITY_VERSION || '1.0.6';
     const osPlatform = os.platform();
     const architecture = os.arch();
     const osName = osPlatform === 'darwin' ? 'darwin' : (osPlatform === 'win32' ? 'win32' : 'linux');
-    return `antigravity/${version} ${osName}/${architecture}`;
+    const archName = architecture === 'x64' ? 'amd64' : architecture;
+    return `antigravity/cli/${version} ${osName}/${archName}`;
 }
 
 export function getClientVersion() {
@@ -15,9 +16,7 @@ export function getClientVersion() {
 export const ANTIGRAVITY_HEADERS = {
     'User-Agent': generateSmartUserAgent(),
     'Content-Type': 'application/json',
-    'X-Client-Name': 'antigravity',
-    'X-Client-Version': getClientVersion(),
-    'x-goog-api-client': 'gl-node/18.18.2 fire/0.8.6 grpc/1.10.x'
+    'Accept-Encoding': 'gzip'
 };
 
 export const OAUTH_CONFIG = {
