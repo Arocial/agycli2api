@@ -1,4 +1,4 @@
-import os from "os";
+import os from "node:os";
 
 function generateSmartUserAgent() {
 	const version = process.env.ANTIGRAVITY_VERSION || "1.0.6";

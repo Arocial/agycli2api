@@ -1,6 +1,6 @@
-import fs from "fs/promises";
-import os from "os";
-import path from "path";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { OAUTH_CONFIG, TOKEN_EXPIRY_BUFFER_MS } from "./config.js";
 
 // The requested token path
@@ -11,19 +11,34 @@ const TOKEN_PATH = path.join(
 	"antigravity-oauth-token",
 );
 
-let cachedTokenData: any = null;
+export interface TokenData {
+	access_token: string;
+	refresh_token?: string;
+	expires_in?: number;
+	expiry_date?: number;
+	expires_at?: number;
+	expiry?: string;
+}
+
+interface TokenFileContent {
+	auth_method?: string;
+	token?: TokenData;
+	[key: string]: unknown;
+}
+
+let cachedTokenData: TokenData | null = null;
 let refreshPromise: Promise<string> | null = null;
 
-export async function readToken() {
+export async function readToken(): Promise<TokenData | null> {
 	try {
 		const data = await fs.readFile(TOKEN_PATH, "utf8");
 		return JSON.parse(data).token;
-	} catch (err) {
+	} catch (_err) {
 		return null;
 	}
 }
 
-export async function saveToken(tokenData: any) {
+export async function saveToken(tokenData: TokenData) {
 	try {
 		const dir = path.dirname(TOKEN_PATH);
 		await fs.mkdir(dir, { recursive: true });
@@ -40,11 +55,11 @@ export async function saveToken(tokenData: any) {
 			tokenData.expiry = new Date(tokenData.expiry_date).toISOString();
 		}
 
-		let fileContent: any = { auth_method: "consumer" };
+		let fileContent: TokenFileContent = { auth_method: "consumer" };
 		try {
 			const existingData = await fs.readFile(TOKEN_PATH, "utf8");
 			fileContent = JSON.parse(existingData);
-		} catch (e) {
+		} catch (_e) {
 			// Ignore read error
 		}
 		fileContent.token = tokenData;
@@ -60,12 +75,12 @@ export async function saveToken(tokenData: any) {
 	}
 }
 
-function isTokenExpired(tokenData: any) {
+function isTokenExpired(tokenData: TokenData) {
 	const now = Date.now();
 	// Check various possible expiry fields
 	if (tokenData.expiry) {
 		const expiryTime = new Date(tokenData.expiry).getTime();
-		if (!isNaN(expiryTime)) {
+		if (!Number.isNaN(expiryTime)) {
 			return now >= expiryTime - TOKEN_EXPIRY_BUFFER_MS;
 		}
 	}
@@ -83,7 +98,7 @@ export async function getToken() {
 	}
 	const tokenData = cachedTokenData;
 
-	if (!tokenData || !tokenData.access_token) {
+	if (!tokenData?.access_token) {
 		throw new Error(
 			"Token not found or invalid. Please manually log in via antigravity-cli first.",
 		);
@@ -109,7 +124,7 @@ export async function getToken() {
 					body: new URLSearchParams({
 						client_id: OAUTH_CONFIG.clientId,
 						client_secret: OAUTH_CONFIG.clientSecret,
-						refresh_token: tokenData.refresh_token,
+						refresh_token: tokenData.refresh_token || "",
 						grant_type: "refresh_token",
 					}),
 				});

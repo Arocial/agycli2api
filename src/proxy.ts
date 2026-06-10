@@ -1,6 +1,6 @@
-import crypto from "crypto";
+import crypto from "node:crypto";
+import { Readable } from "node:stream";
 import type { Request, Response } from "express";
-import { Readable } from "stream";
 import { getToken } from "./auth.js";
 import {
 	ANTIGRAVITY_ENDPOINT_DAILY,
@@ -11,6 +11,17 @@ import {
 	SESSION_EXPIRY_MS,
 	SESSION_RENEWAL_MS,
 } from "./config.js";
+
+interface Part {
+	text?: string;
+	[key: string]: unknown;
+}
+
+interface Content {
+	role?: string;
+	parts?: Part[];
+	[key: string]: unknown;
+}
 
 interface Session {
 	conversationId: string;
@@ -52,7 +63,7 @@ function generateSessionId() {
 }
 
 function calculateHistoryHash(
-	contents: any[],
+	contents: Content[],
 	excludeLast: boolean,
 	identity: string,
 ): string | null {
@@ -61,7 +72,7 @@ function calculateHistoryHash(
 	const userTexts: string[] = [];
 	for (const msg of contents) {
 		if (msg.role === "user" && Array.isArray(msg.parts)) {
-			const text = msg.parts.map((p: any) => p.text || "").join("");
+			const text = msg.parts.map((p) => p.text || "").join("");
 			userTexts.push(text);
 		}
 	}
@@ -74,12 +85,12 @@ function calculateHistoryHash(
 		return null;
 	}
 
-	const combined = identity + "\n###\n" + userTexts.join("\n---\n");
+	const combined = `${identity}\n###\n${userTexts.join("\n---\n")}`;
 	return crypto.createHash("sha256").update(combined).digest("hex");
 }
 
 function getOrCreateSession(
-	contents: any[],
+	contents: Content[],
 	token: string | null,
 	providedSessionId?: string,
 ) {
@@ -88,13 +99,19 @@ function getOrCreateSession(
 	const newHistoryHash = calculateHistoryHash(contents, false, identity);
 
 	let sessionKey: string | null = providedSessionId || null;
-	if (!sessionKey && historyHash && historyHashToSessionId.has(historyHash)) {
-		sessionKey = historyHashToSessionId.get(historyHash)!;
+	if (!sessionKey && historyHash) {
+		const storedKey = historyHashToSessionId.get(historyHash);
+		if (storedKey) {
+			sessionKey = storedKey;
+		}
 	}
 
-	let session: Session;
-	if (sessionKey && sessions.has(sessionKey)) {
-		session = sessions.get(sessionKey)!;
+	let session: Session | undefined;
+	if (sessionKey) {
+		session = sessions.get(sessionKey);
+	}
+
+	if (session && sessionKey) {
 		if (Date.now() - session.lastActive > SESSION_RENEWAL_MS) {
 			session.conversationId = crypto.randomUUID();
 			session.trajectoryId = crypto.randomUUID();
@@ -159,7 +176,7 @@ async function fetchProject(token: string | null) {
 		);
 		if (response.ok) {
 			const data = await response.json();
-			if (data && data.cloudaicompanionProject) {
+			if (data?.cloudaicompanionProject) {
 				cachedProject = { token, project: data.cloudaicompanionProject };
 			}
 		} else {
@@ -181,7 +198,7 @@ async function fetchProject(token: string | null) {
 interface CachedModels {
 	token: string;
 	project: string;
-	models: Record<string, any>;
+	models: Record<string, { model?: string; [key: string]: unknown }>;
 	fetchTime: number;
 }
 
@@ -190,7 +207,7 @@ let cachedModels: CachedModels | null = null;
 async function fetchModels(
 	token: string,
 	project: string,
-	requestedModel: string,
+	_requestedModel: string,
 ) {
 	const isCacheValid =
 		cachedModels &&
@@ -215,7 +232,7 @@ async function fetchModels(
 		);
 		if (response.ok) {
 			const data = await response.json();
-			if (data && data.models) {
+			if (data?.models) {
 				cachedModels = {
 					token,
 					project,
@@ -261,10 +278,7 @@ export async function handleGenerateContent(
 				},
 			];
 
-			if (
-				originalBody.systemInstruction &&
-				originalBody.systemInstruction.parts
-			) {
+			if (originalBody.systemInstruction?.parts) {
 				for (const part of originalBody.systemInstruction.parts) {
 					if (part.text) {
 						systemParts.push({ text: part.text });
@@ -279,12 +293,12 @@ export async function handleGenerateContent(
 		}
 
 		// 2. Wrap/Simulate realistic metadata
-		const contents = originalBody.contents || [];
+		const contents: Content[] = originalBody.contents || [];
 		const providedSessionId = req.headers["x-session-id"] as string | undefined;
 		const session = getOrCreateSession(contents, token, providedSessionId);
 
 		const userMsgCnt = contents.filter(
-			(m: any) => m.role === "user" && m.parts?.some((p: any) => "text" in p),
+			(m) => m.role === "user" && m.parts?.some((p) => "text" in p),
 		).length;
 
 		if (userMsgCnt > session.lastUserMsgCnt) {
@@ -338,14 +352,14 @@ export async function handleGenerateContent(
 		};
 
 		// 3. Prepare headers
-		const headers = {
+		const headers: Record<string, string> = {
 			...ANTIGRAVITY_HEADERS,
 			Authorization: `Bearer ${token}`,
 			"Content-Type": "application/json",
 		};
 
 		if (isStreaming) {
-			(headers as any)["Accept"] = "text/event-stream";
+			headers.Accept = "text/event-stream";
 		}
 
 		// 4. Forward to Cloud Code API
@@ -376,7 +390,9 @@ export async function handleGenerateContent(
 			// Pipe fetch stream to Express response
 			if (response.body) {
 				// For Node.js fetch implementation, response.body is a Web ReadableStream
-				const readable = Readable.fromWeb(response.body as any);
+				const readable = Readable.fromWeb(
+					response.body as Parameters<typeof Readable.fromWeb>[0],
+				);
 				readable.pipe(res);
 			} else {
 				res.end();
