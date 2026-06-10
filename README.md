@@ -10,38 +10,35 @@ A lightweight, single-user API proxy for Antigravity, exposing a standard Gemini
 - **Streaming Support**: Full Server-Sent Events (SSE) pass-through.
 - **Seamless Authentication**: Directly reads and automatically refreshes tokens managed by `antigravity-cli`.
 
-## Installation
-
-```bash
-npm install
-```
-
-## Authentication
+## Prepare
 
 This proxy automatically uses the token maintained by `antigravity-cli`. 
-
-Ensure you have authenticated through `antigravity-cli` at least once:
-```bash
-# Run whatever command is normally used by antigravity-cli to login
-antigravity-cli login
-```
-
 The proxy will read from `~/.gemini/antigravity-cli/antigravity-oauth-token` and will automatically refresh the token for you when it expires.
+
+Run `agy -p hi` to initialize.
 
 ## Usage
 
 Start the proxy server:
 
 ```bash
-npm start
+npm install
+npm run build
+npm run start
 ```
 
-The server will run on port `8080` by default.
+Alternatively, for active development with auto-reloading:
+
+```bash
+npm run dev
+```
+
+The server will run on port `3403` by default.
 
 ### Example Request
 
 ```bash
-curl -X POST http://localhost:8080/v1beta/models/gemini-1.5-pro:generateContent \
+curl -X POST http://localhost:3403/v1beta/models/gemini-3-flash:generateContent \
   -H "Content-Type: application/json" \
   -d '{
     "contents": [{
@@ -63,7 +60,7 @@ To accurately simulate the telemetry and behavior of the official Antigravity ID
 
 Some behaviors can be configured via environment variables, while others are intentionally hardcoded to maintain compatibility with the official Antigravity IDE plugins.
 
-- **`FALLBACK_ANTIGRAVITY_VERSION`**: Allows you to override the default Antigravity CLI version (`1.0.6`) used in the `User-Agent`. Set this environment variable if the official client updates and you need to match it.
+- **`ANTIGRAVITY_VERSION`**: Allows you to override the default Antigravity CLI version (`1.0.6`) used in the `User-Agent`. Set this environment variable if the official client updates and you need to match it.
 - **`ANTIGRAVITY_SESSION_ID`**: The session ID to use for requests. You can find a valid session ID by inspecting the files in `~/.gemini/antigravity-cli/conversations/` or by capturing packets from the official plugin. If not provided, a random session ID will be generated. Try `extract_session_id` script.
 - **`INJECT_SYSTEM_PROMPT`**: Set to `"true"` to enable injection of the Anti-Lobotomy System Instruction into the payload. Disabled by default.
 
