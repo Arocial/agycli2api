@@ -8,6 +8,7 @@ A lightweight, single-user API proxy for Antigravity, exposing a standard Gemini
 - **Anti-Ban Workarounds**: Automatically rewrites User-Agent, Client versions, and headers to match the official Antigravity IDE plugins.
 - **Anti-Lobotomy**: Injects the required System Instructions without causing the model to identify unnecessarily as Antigravity to the user.
 - **Streaming Support**: Full Server-Sent Events (SSE) pass-through.
+- **Seamless Authentication**: Directly reads and automatically refreshes tokens managed by `antigravity-cli`.
 
 ## Installation
 
@@ -17,13 +18,15 @@ npm install
 
 ## Authentication
 
-Before running the proxy, you must authenticate once using your Google account:
+This proxy automatically uses the token maintained by `antigravity-cli`. 
 
+Ensure you have authenticated through `antigravity-cli` at least once:
 ```bash
-node index.js auth
+# Run whatever command is normally used by antigravity-cli to login
+antigravity-cli login
 ```
 
-This will open a local web server and print a URL to your console. Open the URL in your browser, log in, and the token will be automatically retrieved and stored in `~/.config/agy-cli-proxy/token.json`. It will automatically refresh when expired.
+The proxy will read from `~/.gemini/antigravity-cli/antigravity-oauth-token` and will automatically refresh the token for you when it expires.
 
 ## Usage
 
