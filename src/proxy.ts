@@ -262,6 +262,23 @@ async function fetchModels(token: string, project: string) {
 
 // --- Extracted helpers for handleGenerateContent ---
 
+function keysToCamelCase(obj: unknown): unknown {
+	if (Array.isArray(obj)) {
+		return obj.map(keysToCamelCase);
+	}
+	if (obj !== null && typeof obj === "object") {
+		const result: Record<string, unknown> = {};
+		for (const [key, value] of Object.entries(obj)) {
+			const camelKey = key.replace(/_([a-z])/g, (_, letter) =>
+				letter.toUpperCase(),
+			);
+			result[camelKey] = keysToCamelCase(value);
+		}
+		return result;
+	}
+	return obj;
+}
+
 /**
  * Merge model-level defaults (maxOutputTokens, thinking config) into the
  * caller-supplied generationConfig, without overwriting values the caller
@@ -271,18 +288,24 @@ function buildGenerationConfig(
 	original: GenerationConfig | undefined,
 	modelConfig: ModelConfig | undefined,
 ): GenerationConfig | undefined {
-	if (!modelConfig) return original;
+	const normalizedOriginal = (
+		original ? keysToCamelCase(original) : original
+	) as GenerationConfig | undefined;
+
+	if (!modelConfig) return normalizedOriginal;
 
 	const hasMaxOutputTokens = typeof modelConfig.maxOutputTokens === "number";
 	const hasSupportsThinking = typeof modelConfig.supportsThinking === "boolean";
 	const hasThinkingBudget = typeof modelConfig.thinkingBudget === "number";
 
 	if (!hasMaxOutputTokens && !hasSupportsThinking && !hasThinkingBudget) {
-		return original;
+		return normalizedOriginal;
 	}
 
 	const config: GenerationConfig =
-		typeof original === "object" && original !== null ? { ...original } : {};
+		typeof normalizedOriginal === "object" && normalizedOriginal !== null
+			? { ...normalizedOriginal }
+			: {};
 
 	if (hasMaxOutputTokens && config.maxOutputTokens === undefined) {
 		config.maxOutputTokens = modelConfig.maxOutputTokens as number;
