@@ -8,8 +8,10 @@
 		"build": "tsc",
 		"start": "node --use-env-proxy dist/index.js",
 		"dev": "nodemon --exec \"tsx --use-env-proxy\" src/index.ts",
-		"lint": "biome check .",
-		"format": "biome check --write ."
+		"lint": "biome lint .",
+		"format": "biome format --write .",
+		"check": "biome check --write .",
+		"pre-commit": "npm run lint && npm run check"
 	},
 	"keywords": [],
 	"author": "",

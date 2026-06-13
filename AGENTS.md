@@ -17,7 +17,7 @@ The source code is written in TypeScript and resides in the `src` directory:
 
 ## Development Guidelines
 
-- **Formatting & Linting**: This project uses [Biome](https://biomejs.dev/) for formatting and linting. Run `npm run format` and `npm run lint` to format or check the code before committing.
+- **Formatting & Linting**: This project uses [Biome](https://biomejs.dev/) for formatting and linting. Run `npm run format` and `npm run lint` to format or check the code. Always execute `npm run pre-commit` before committing your changes.
 - **Running locally**: Use `npm run dev` to start a development server with `nodemon` and `tsx` that auto-reloads on changes.
 - **TypeScript**: The project uses TypeScript. Ensure proper types or interfaces are defined when adding new functionality.
 - **Streaming Support**: `proxy.ts` handles Server-Sent Events (SSE). Be careful when modifying response handling in `handleGenerateContent` so that streaming functionality remains unbroken.
