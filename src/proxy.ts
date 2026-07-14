@@ -12,6 +12,7 @@ import {
 	SESSION_EXPIRY_MS,
 	SESSION_RENEWAL_MS,
 } from "./config.js";
+import { setRequestError } from "./request-logger.js";
 
 interface Part {
 	text?: string;
@@ -403,6 +404,7 @@ export async function handleListModels(req: Request, res: Response) {
 		});
 	} catch (err) {
 		const message = (err as Error).message;
+		setRequestError(res, err);
 		if (message === "Invalid pageToken." || message.startsWith("pageSize ")) {
 			return res.status(400).json({
 				error: { code: 400, message, status: "INVALID_ARGUMENT" },
@@ -645,6 +647,7 @@ async function pipeStreamingResponse(
 	} catch (err) {
 		// Connection reset / client disconnect / upstream abort are expected
 		// during long-lived SSE; log but don't re-throw.
+		setRequestError(res, err);
 		if (!res.writableEnded) {
 			res.end();
 		}
@@ -747,7 +750,9 @@ export async function handleGenerateContent(
 
 		if (!response.ok) {
 			const errText = await response.text();
-			console.error(`Upstream error: ${response.status} - ${errText}`);
+			const errorMessage = `Upstream error: ${response.status} - ${errText}`;
+			setRequestError(res, errorMessage);
+			console.error(errorMessage);
 			const ct = response.headers.get("content-type");
 			if (ct) res.setHeader("Content-Type", ct);
 			return res.status(response.status).send(errText);
@@ -760,6 +765,7 @@ export async function handleGenerateContent(
 			await sendNonStreamingResponse(response, res);
 		}
 	} catch (err) {
+		setRequestError(res, err);
 		console.error("Error in proxy:", err);
 		res.status(500).json({ error: { message: (err as Error).message } });
 	}

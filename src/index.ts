@@ -1,9 +1,11 @@
 import crypto from "node:crypto";
 import cors from "cors";
-import express from "express";
+import express, { type ErrorRequestHandler } from "express";
 import { handleGenerateContent, handleListModels } from "./proxy.js";
+import { requestLogger, setRequestError } from "./request-logger.js";
 
 const app = express();
+app.use(requestLogger);
 app.use(cors());
 app.use(express.json({ limit: "50mb" }));
 
@@ -26,9 +28,9 @@ app.use((req, res, next) => {
 			: undefined);
 
 	if (providedKey !== expectedKey) {
-		return res
-			.status(401)
-			.json({ error: { message: "Unauthorized: Invalid API Key" } });
+		const message = "Unauthorized: Invalid API Key";
+		setRequestError(res, message);
+		return res.status(401).json({ error: { message } });
 	}
 
 	next();
@@ -42,6 +44,32 @@ app.post("/v1beta/models/:modelAndAction", (req, res) => {
 	const isStreaming = action === "streamGenerateContent";
 	return handleGenerateContent(req, res, isStreaming, model || "");
 });
+
+app.use((req, res) => {
+	const message = `Route not found: ${req.method} ${req.path}`;
+	setRequestError(res, message);
+	res.status(404).json({ error: { message } });
+});
+
+const errorHandler: ErrorRequestHandler = (error, _req, res, next) => {
+	if (res.headersSent) {
+		next(error);
+		return;
+	}
+
+	const statusCandidate = (error as { status?: unknown }).status;
+	const status =
+		typeof statusCandidate === "number" &&
+		statusCandidate >= 400 &&
+		statusCandidate < 600
+			? statusCandidate
+			: 500;
+	const message =
+		error instanceof Error ? error.message : "Internal Server Error";
+	setRequestError(res, error);
+	res.status(status).json({ error: { message } });
+};
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 3403;
 app.listen(PORT, () => {
