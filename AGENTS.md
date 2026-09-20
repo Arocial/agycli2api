@@ -26,6 +26,6 @@ The source code is written in TypeScript and resides in the `src` directory:
 
 The `docker` directory contains files for building and running the project in a containerized environment:
 
-- **`docker/Dockerfile`**: A multi-stage build that compiles the TypeScript code and sets up a production Node environment. It also installs the official `antigravity-cli` inside the container to dynamically extract and export the latest `ANTIGRAVITY_VERSION`.
+- **`docker/Dockerfile`**: A multi-stage build that compiles the TypeScript code and sets up a production Node environment. It uses the official platform release manifest as a Docker cache key, so a newly published `antigravity-cli` release automatically invalidates the CLI installation layer and exports the matching `ANTIGRAVITY_VERSION`.
 - **`docker/docker-compose.yml`**: Configures the service, binds port `3403`, and uses a named volume `gemini-data` mapped to `/root/.gemini` to persist the OAuth tokens and conversation states.
 - **`docker/entrypoint.sh`**: A startup script that sources the `ANTIGRAVITY_VERSION` and extracts a valid `ANTIGRAVITY_SESSION_ID` directly from the mounted SQLite databases before executing the Node application.
