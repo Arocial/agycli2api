@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const DEFAULT_URL = "http://localhost:3403";
+const DEFAULT_URL = "http://agycli2api:3403";
 
 function printUsage() {
 	console.log(`Usage: npm run list-models -- [options]
